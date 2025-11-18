@@ -1,0 +1,59 @@
+{
+  "name": "sanctityferme-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "nodemon ./src/bin/www",
+    "start": "node ./src/bin/www",
+    "build": "echo 'No build needed for Vercel'",
+    "test": "jest",
+    "test:watch": "jest --watchAll",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cookie-parser": "^1.4.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "expo-server-sdk": "^3.15.0",
+    "express": "^4.17.1",
+    "form-data": "^4.0.4",
+    "helmet": "^3.23.3",
+    "http-errors": "^1.8.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pdfkit": "^0.17.1",
+    "pg": "^8.15.6",
+    "pg-hstore": "^2.3.4",
+    "pg-sdk-node": "^2.0.2",
+    "phonepe-kit": "^1.1.1",
+    "sequelize": "^6.37.7",
+    "serverless-http": "^3.2.0",
+    "sha256": "^0.2.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb-base": "^13.2.0",
+    "eslint-config-prettier": "^6.15.0",
+    "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-prettier": "^3.4.0",
+    "jest": "^24.9.0",
+    "nodemon": "^2.0.12",
+    "supertest": "^3.4.2"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "*.test.js"
+    ]
+  },
+  "description": "",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
