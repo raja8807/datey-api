@@ -9,9 +9,6 @@ const app = express();
 
 const routes = require('./routes');
 
-// const { associateModels } = require('./models');
-// const sequelize = require('./config/sequelize');
-
 app.use(helmet()); // https://expressjs.com/en/advanced/best-practice-security.html#use-helmet
 app.use(logger('dev'));
 app.use(express.json());
@@ -22,7 +19,7 @@ app.disable('etag');
 app.use((req, res, next) => {
   res.set(
     'Cache-Control',
-    'no-store, no-cache, must-revalidate, proxy-revalidate'
+    'no-store, no-cache, must-revalidate, proxy-revalidate',
   );
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
@@ -30,18 +27,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// sequelize.sync({
-//   // alter: true,
-//   // force: true,
-// });
-
-// associateModels();
-
 app.get('/', (req, res) => {
   res.status(200).json({ message: 'API is up and running' });
 });
 
-// app.use(authenticate);
 app.use('/api', routes);
 
 // catch 404 and forward to error handler

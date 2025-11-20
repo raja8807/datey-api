@@ -1,19 +1,14 @@
-const { createClient } = require('@supabase/supabase-js');
-
 // const { default: axios } = require('axios');
+
+const supabaseAdmin = require('../../../libs/supabaseAdmin');
 
 exports.sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-
     const { data: linkData, error: linkErr } =
       await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
-        email: `91${phone}6@datey.app`,
+        email: `91${phone}@datey.app`,
       });
 
     return res.status(200).json({

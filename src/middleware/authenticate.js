@@ -1,22 +1,29 @@
-const authenticate = (req, res, next) => {
-  next();
-  //   const publicEndpoints = ['/api/x'];
+const jwt = require('jsonwebtoken');
 
-  const token = req.headers.authorization;
-  if (!token) {
-    return res.status(401).json({ message: 'Authorization token is required' });
+function verifyAuthToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      error: 'Authorization header missing',
+    });
   }
 
-  // Check token validity (for simplicity, assuming 'Bearer <token>')
-  const isValidToken = token.startsWith('Bearer ');
+  const token = authHeader.replace('Bearer ', '').trim();
+  //
+  try {
+    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+    req.user = decoded;
+    req.accessToken = token;
 
-  if (!isValidToken) {
-    return res.status(403).json({ message: 'Invalid token' });
+    next();
+  } catch (err) {
+    return res.status(401).json({
+      error: 'Invalid or expired token',
+      message: err.message,
+    });
   }
+  return {};
+}
 
-  next(); // Continue to the next middleware or route
-
-  return null;
-};
-
-module.exports = authenticate;
+module.exports = verifyAuthToken;
