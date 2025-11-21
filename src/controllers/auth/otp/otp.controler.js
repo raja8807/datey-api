@@ -8,7 +8,7 @@ exports.sendOtp = async (req, res) => {
     const { data: linkData, error: linkErr } =
       await supabaseAdmin.auth.admin.generateLink({
         type: 'magiclink',
-        email: `91${phone}@datey.app`,
+        email: `${phone}@datey.app`,
       });
 
     return res.status(200).json({
