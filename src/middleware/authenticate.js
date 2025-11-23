@@ -13,6 +13,7 @@ function verifyAuthToken(req, res, next) {
   //
   try {
     const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+
     req.user = decoded;
     req.accessToken = token;
 

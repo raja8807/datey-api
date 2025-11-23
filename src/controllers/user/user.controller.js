@@ -3,89 +3,199 @@ const supabaseClient = require('../../libs/supabaseClient');
 
 exports.getCurrentUser = async (req, res) => {
   try {
-    if (!req.user.email) {
-      return res.status(401).json({
-        error: 'Authentication required: No user email found',
-      });
+    if (!req.user?.email) {
+      return res
+        .status(401)
+        .json({ error: 'Authentication required: No user email found' });
     }
+
+    const userId = req.user?.user_metadata?.user_id;
+    if (!userId) return res.status(200).json(null);
 
     const supabase = supabaseClient(req.accessToken);
 
-    // Fetch user
+    // Try to fetch the user and include any relational user_preferences -> preferences if set up
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('*')
-      .eq('app_email', req.user.email)
-      .limit(1);
+
+      .select(
+        `
+         *,
+         user_preferences (*)
+        `,
+      )
+      .eq('id', userId)
+      .single();
 
     if (userError) {
-      console.error('Supabase error:', userError);
+      console.error('Supabase error fetching user:', userError);
+      // handle known PostgREST error codes if needed
+      if (userError.code === 'PGRST116') return res.status(404).json(null);
+      return res
+        .status(500)
+        .json({ error: 'Database error', details: userError.message });
+    }
 
-      if (userError.code === 'PGRST116') {
-        return res.status(404).json(null);
+    if (!userData) return res.status(200).json(null);
+
+    // Build interest_details from whichever structure you use
+    let interestDetails = [];
+
+    // Case A: nested relational preferences via user_preferences -> preferences
+    if (
+      Array.isArray(userData.user_preferences) &&
+      userData.user_preferences.length > 0
+    ) {
+      // collect nested preference objects if available
+      const nested = userData.user_preferences
+        .map((up) => up.preferences || up.interest || null)
+        .filter(Boolean);
+
+      if (nested.length > 0) {
+        interestDetails = nested;
       }
-
-      return res.status(500).json({
-        error: 'Database error',
-        details: userError.message,
-      });
     }
 
-    const user = userData[0];
-    if (!user) return res.status(200).json(null);
+    // Case B: user has an array of interest IDs on the users table (users.interests)
+    if (
+      interestDetails.length === 0 &&
+      Array.isArray(userData.interests) &&
+      userData.interests.length > 0
+    ) {
+      const { data: interestsFromTable, error: interestsError } = await supabase
+        .from('interests') // or 'preferences' depending on your master table name
+        .select('*')
+        .in('id', userData.interests);
 
-    // If no interests, return user directly
-    if (!user.interests || user.interests.length === 0) {
-      return res.status(200).json({
-        ...user,
-        interest_details: [],
-      });
+      if (interestsError) {
+        console.error('Error fetching interests by IDs:', interestsError);
+        // Fall back to empty array but still return user
+        interestDetails = [];
+      } else {
+        interestDetails = interestsFromTable || [];
+      }
     }
 
-    // Fetch interest names using the array of IDs
-    const { data: interestDetails, error: interestsError } = await supabase
-      .from('interests')
-      .select('*')
-      .in('id', user.interests);
-
-    if (interestsError) {
-      console.log('Interests fetch error ->', interestsError);
-
-      return res.status(200).json({
-        ...user,
-        interest_details: [],
-      });
-    }
-
-    return res.status(200).json({
-      ...user,
+    // Final response: ensure interest_details always present as an array
+    const safeUser = {
+      ...userData,
       interest_details: interestDetails,
-    });
+    };
+
+    return res.status(200).json(safeUser);
   } catch (err) {
-    console.error('Unexpected error in getCurrentUser:', err.message);
+    console.error('Unexpected error in getCurrentUser:', err);
 
-    if (err.message.includes('JWT')) {
-      return res.status(401).json({
-        error: 'Invalid or expired token',
-      });
+    if (err?.message?.includes('JWT')) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    if (
+      err?.message?.toLowerCase().includes('network') ||
+      err?.message?.toLowerCase().includes('connection')
+    ) {
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
     }
 
-    if (err.message.includes('network') || err.message.includes('connection')) {
-      return res.status(503).json({
-        error: 'Service temporarily unavailable',
-      });
-    }
-
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: err.message,
-    });
+    return res
+      .status(500)
+      .json({ error: 'Internal server error', message: err.message });
   }
 };
 
+// exports.getCurrentUser = async (req, res) => {
+//   try {
+//     if (!req.user.email) {
+//       return res.status(401).json({
+//         error: 'Authentication required: No user email found',
+//       });
+//     }
+
+//     if (req.user?.user_metadata?.user_id) {
+//       const supabase = supabaseClient(req.accessToken);
+
+//       // Fetch user
+//       const { data: userData, error: userError } = await supabase
+//         .from('users')
+//         .select(
+//           `
+//          *,
+//          user_preferences (*)
+//         `,
+//         )
+//         .eq('id', req?.user?.user_metadata?.user_id || null)
+//         .limit(1);
+
+//       if (userError) {
+//         console.error('Supabase error:', userError);
+
+//         if (userError.code === 'PGRST116') {
+//           return res.status(404).json(null);
+//         }
+
+//         return res.status(500).json({
+//           error: 'Database error',
+//           details: userError.message,
+//         });
+//       }
+
+//       const user = userData[0];
+//       if (!user) return res.status(200).json(null);
+
+//       // If no interests, return user directly
+//       if (!user.interests || user.interests.length === 0) {
+//         return res.status(200).json({
+//           ...user,
+//           interest_details: [],
+//         });
+//       }
+
+//       // Fetch interest names using the array of IDs
+//       const { data: interestDetails, error: interestsError } = await supabase
+//         .from('interests')
+//         .select('*')
+//         .in('id', user.interests);
+
+//       if (interestsError) {
+//         console.log('Interests fetch error ->', interestsError);
+
+//         return res.status(200).json({
+//           ...user,
+//           interest_details: [],
+//         });
+//       }
+
+//       return res.status(200).json({
+//         ...user,
+//         interest_details: interestDetails,
+//       });
+//     }
+
+//     return res.status(200).json(null);
+//   } catch (err) {
+//     console.error('Unexpected error in getCurrentUser:', err.message);
+
+//     if (err.message.includes('JWT')) {
+//       return res.status(401).json({
+//         error: 'Invalid or expired token',
+//       });
+//     }
+
+//     if (err.message.includes('network') || err.message.includes('connection')) {
+//       return res.status(503).json({
+//         error: 'Service temporarily unavailable',
+//       });
+//     }
+
+//     return res.status(500).json({
+//       error: 'Internal server error',
+//       message: err.message,
+//     });
+//   }
+// };
+
 exports.updateCurrentUser = async (req, res) => {
   try {
-    const { name, age, gender, interests = [] } = req.body;
+    const { name, age, gender, preferences, interests = [] } = req.body;
 
     // Convert objects → array of IDs
     const interestIds = interests.map((i) => i.id) || [];
@@ -127,6 +237,18 @@ exports.updateCurrentUser = async (req, res) => {
       }
 
       [updatedUser] = data;
+
+      if (preferences) {
+        const updatedPreference = await supabase
+          .from('user_preferences')
+          .update({
+            user_id: updatedUser.id,
+            ...preferences,
+          })
+          .eq('user_id', updatedUser.id)
+          .select('*');
+        console.log('upated---->>', updatedPreference);
+      }
     } else {
       // 3. User does NOT exist → create one
       const phone = req.user.email.split('@')[0];
@@ -154,10 +276,17 @@ exports.updateCurrentUser = async (req, res) => {
       await supabaseAdmin.auth.admin.updateUserById(req.user.sub, {
         phone,
         phone_confirm: false,
+        display_name: updatedUser.name,
         user_metadata: {
-          userId: updatedUser.id,
+          user_id: updatedUser.id,
         },
       });
+
+      const createdPreference = await supabase.from('user_preferences').insert({
+        user_id: updatedUser.id,
+      });
+
+      console.log('created--->>', createdPreference);
     }
 
     return res.status(200).json(updatedUser);
